@@ -45,4 +45,4 @@ Sophia Farrell; July 2021
 | best_like | the best log-likelihood of the points | -- |
 | worst_like | the worst log-likelihood of the points | -- |
 | average_like | the average log-likelihood of the points | -- |
-| average_like_05m | the average log likelihood excluding a 0.5m sphere around the best fit | -- |
+| average_like_05m | the average log likelihood excluding a 0.5m sphere around the best fit | -- |%   
