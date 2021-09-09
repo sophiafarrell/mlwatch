@@ -28,8 +28,24 @@ Root files aren't intrinsic to python, so aren't super efficient to use, though 
 We will use awkward and uproot to handle our root files, converting them to jsons for some purposes
 (though you could always skip this and just use awkward to load every time, then make cuts.)
 Cuts are made in the process to rid the jsons of the first couple/last couple events in a run, as well as those that had bad fits (e.g., n9 never calculated)
-**put here: conversion script for each file** 
 
-### Train and test sets 
 
-### ... 
+## Function tools to convert files: 
+While you can copy my data, it might be more beneficial to use the same tools for other datasets. 
+You'll find all these functions in the file: `data_preprocessing.py`. 
+
+**Data loading/saving/converting**
+- root_to_json
+- load_json_to_awkward
+- get_paired_data
+- create_train_test_sets
+- load_pickled_data
+
+**PMT position data**
+- get_pmt_positions
+- load_pmt_positions
+
+**Preprocessing of fred features**
+- get_fred_dims
+- add_netoutput_to_rf
+- scale_features
