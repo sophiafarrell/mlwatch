@@ -1,11 +1,6 @@
-import networkx as nx
 import torch
 from tqdm import tqdm
-import pickle
-import awkward as ak
 
-from torch_geometric.utils import from_networkx, add_self_loops
-from torch_geometric.data import Data, Dataset, DataLoader
 from torch_geometric.nn import GCNConv, ASAPooling, TopKPooling
 from torch.nn import Linear, Sequential, ReLU, Dropout, Sigmoid
 
@@ -13,16 +8,11 @@ import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
 
-import uproot
-import numpy as np
-
-import tensorflow as tf
 torch.cuda.set_device(0)
 device = torch.device("cuda")
 
 from data.data_preprocessing import *
 from GCN_utils import *
-
 
 class GCNNet(torch.nn.Module):
     def __init__(self, final_out=3, n_pmts=2330):
