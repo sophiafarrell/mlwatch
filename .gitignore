@@ -1,0 +1,11 @@
+# data exclusions (find them elsewhere)
+data/train_test_sets/*.pkl
+data/root_files/*.root
+data/old_not_used_in_final/*
+data/json_files/*.json
+old_notebooksetc/*
+weights/*
+GCN_models/*
+models/*
+fred_muon_flag/*
+

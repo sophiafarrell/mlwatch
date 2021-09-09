@@ -12,7 +12,7 @@ def load_obj(name, directory='./'):
     with open(directory + name + '.pkl', 'rb') as f:
         return pickle.load(f)
     
-core_rates = load_obj('core_rates', directory='./data/')
+core_rates = load_obj('all_core_rates', directory='./')
 
 def get_times(r_signal, s_signal, 
               r_acc, r_radio, r_fn, r_ibdbg, 
@@ -80,18 +80,19 @@ def plot_times(fpr, anom, meas, meas0, anom0, extra_title=''):
 
     plt.show()
     
-def quick_analysis(acceptances):
+def quick_analysis(acceptances, medium='h20'):
     '''
     Quickly returns some plots for the H20 data given a certain roc curve.
     
     acceptances: (type: dict of fpr, tpr)
     '''
-    
-    kw = dict(plot=True, extra_title='16m Gd-H20, 1-core signal')
-    calc_new_rates('core1', acceptances, **kw)
+    if medium=='h20': title_extra = 'Gd-H20'
+    if medium=='wbls': title_extra = 'Gd-WbLS'
+    kw = dict(plot=True, extra_title=f'16m {title_extra}, 1-core signal')
+    calc_new_rates(f'core1_{medium}', acceptances, **kw)
 
-    kw = dict(plot=True, extra_title='16m Gd-H20, 2-core signal')
-    calc_new_rates('core2', acceptances, **kw)
+    kw = dict(plot=True, extra_title=f'16m {title_extra}, 2-core signal')
+    calc_new_rates(f'core2_{medium}', acceptances, **kw)
     
 # MACHINE LEARNING EVALS
 # class MLevals:
