@@ -24,7 +24,11 @@ Root files are first simulated (via Marc Bergevin), then processed using a sligh
   - This was done for all data in `/p/gpfs1/sfarrell/ml_project/data/root_files`
   
 ### FRED root files to JSON-type 
-
+Root files aren't intrinsic to python, so aren't super efficient to use, though packages exist to handle this. 
+We will use awkward and uproot to handle our root files, converting them to jsons for some purposes
+(though you could always skip this and just use awkward to load every time, then make cuts.)
+Cuts are made in the process to rid the jsons of the first couple/last couple events in a run, as well as those that had bad fits (e.g., n9 never calculated)
+**put here: conversion script for each file** 
 
 ### Train and test sets 
 
