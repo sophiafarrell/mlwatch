@@ -149,11 +149,11 @@ def get_pmt_positions(rootfiles=['ibd_water', 'ibd_wbls'], root_dir='./data/root
                       save=False, save_dir='./data/', savefile='pmtpositions',
             ):
     '''
-    Get and return or save a dict of PMT xyz positions for both h20 and wbls media 
-    ** warning note: n_pmts hard-coded to (h20=2330, wbls=1232)
+    Get and return or save a dict of PMT xyz positions for both h2o and wbls media 
+    ** warning note: n_pmts hard-coded to (h2o=2330, wbls=1232)
     '''
     
-    n_pmts = dict(h20=2330, wbls=1232)
+    n_pmts = dict(h2o=2330, wbls=1232)
     out_pos_dict = dict()
     for rootfile, medium, num_pmts in zip(rootfiles, n_pmts.keys(), n_pmts.values()):
         print(f'Processing {rootfile}: Medium: {medium}  Num Pmts: {num_pmts}')
@@ -165,13 +165,13 @@ def get_pmt_positions(rootfiles=['ibd_water', 'ibd_wbls'], root_dir='./data/root
     if save: pickle.dump(out_pos_dict, open( f'{save_dir}{savefile}.pkl', "wb" ))
     return out_pos_dict
 
-def load_pmt_positions(loadfile='pmtpositions', load_dir='./data/', medium='h20', 
+def load_pmt_positions(loadfile='pmtpositions', load_dir='./data/', medium='h2o', 
                        
                       ):
     '''
     Load dictionary of pmt positions 
     Args:
-    medium: (str) 'h20' or 'wbls'
+    medium: (str) 'h2o' or 'wbls'
     '''
     pmtxyz = pickle.load(open( f'{load_dir}{loadfile}.pkl', 'rb'))
     return pmtxyz[medium.lower()]
