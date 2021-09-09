@@ -1,3 +1,7 @@
+# usual 
+__pycache__
+.ipynb_checkpoints
+
 # data exclusions (find them elsewhere)
 data/train_test_sets/*.pkl
 data/root_files/*.root
@@ -7,5 +11,4 @@ old_notebooksetc/*
 weights/*
 GCN_models/*
 models/*
-fred_muon_flag/*
-
+fred_muon_flag
