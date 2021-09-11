@@ -28,6 +28,7 @@ import numpy as np
 import pickle 
 from sklearn.model_selection import train_test_split
 import pandas as pd
+from sklearn.preprocessing import StandardScaler
 
 def root_to_json(filename, root_dir = './data/root_files/',
                  save=True, savename=None, save_dir = './data/json_files/',
@@ -68,7 +69,7 @@ def load_json_to_awkward(filename, json_dir='./data/json_files/',
     data = ak.from_json(f'{json_dir}{filename}.json')
     return data 
 
-def get_paired_data(data):
+def get_paired_data(data, only_dineutron=False):
     '''
     For fast-neutron, IBD classification 
     Return data in coupled format, with labels, that pass cuts
@@ -82,7 +83,11 @@ def get_paired_data(data):
     condition_3 = data.dt_next_us < 600
 
     both = condition_1 * condition_2 * condition_3
-
+    
+    if only_dineutron:
+        condition_4 = data.dt_prev_us > 1e3
+        both = both * condition_4
+        
     first_of_two = ak.where(both)[0]
     signal1 = data[first_of_two]
     signal2 = data[first_of_two+1]
@@ -92,7 +97,7 @@ def get_paired_data(data):
 def create_train_test_sets(data_list, paired_signals=True,
                            random_state=43, test_size=0.25, 
                            return_data=True, 
-                           save=True, savepath='./data/train_test_sets/', savefile=None,
+                           save=True, savepath='./data/train_test_sets/', savefile='wbls'
                           ):
     '''
     Create train/test labeled sets from data
@@ -131,8 +136,8 @@ def create_train_test_sets(data_list, paired_signals=True,
         data_test = dict(x=xtest, y= y[testidx])
     
     if save:
-        pickle.dump(data_train, open( f"{savepath}{savefile}.pkl", "wb" ))
-        pickle.dump(data_test, open( f"{savepath}{savefile}.pkl", "wb" ))
+        pickle.dump(data_train, open( f"{savepath}train_{savefile}.pkl", "wb" ))
+        pickle.dump(data_test, open( f"{savepath}test_{savefile}.pkl", "wb" ))
     if return_data:
         return data_train, data_test
 
@@ -207,7 +212,7 @@ def add_netoutput_to_rf(X_train, X_test,
         dims_add.append(i)    
     return new_train, new_test, y_train, y_test, dims_add
 
-def scale_features(train, test):
+def scale_features(train, test, dimensions):
     '''
     returns scaler and scaled featuers/y values for FRED variables
     

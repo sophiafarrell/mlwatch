@@ -12,87 +12,133 @@ def load_obj(name, directory='./'):
     with open(directory + name + '.pkl', 'rb') as f:
         return pickle.load(f)
     
-core_rates = load_obj('all_core_rates', directory='./')
+all_rates = load_obj('all_rates', directory='./')
 
-def get_times(r_signal, s_signal, 
-              r_acc, r_radio, r_fn, r_ibdbg, 
-              s_bg, 
-              Z=3):
-    r_bg = r_acc + r_radio + r_fn + r_ibdbg
-    sig_to_bg = r_signal / np.sqrt(r_bg + s_bg**2)
+def get_s_and_b(core_1, core_2, r_acc, r_radio, r_fn, r_ibdbg, ncore=1, **kw):
+    b = r_acc + r_radio + r_fn + r_ibdbg
+    s = core_1
+    if ncore==2:
+        s+= core_2
+    elif ncore==1:
+        b+= core_2 
+    return s, b
+
+def poisson_time(s, b, 
+                Z=3, 
+              **kw
+                ):
+    '''
+    Calculate Poisson-based time (days) to anomaly from s (signal) and b (background) 
+    Z = significance 
+    '''
+    bottom = 2 * ((s+b) * np.log((s+b)/b) - s )
+    t = Z**2 / bottom
+    return t
+
+def get_times(s, b, sigma_b=0, #assume 0 uncertainty if low. 
+              Z=3, **kw):
+    '''
+    Calculate Anomaly and Measurement times from s(signal) and b (background)
+    sigma_b=0: Assumes uncertainty is low, since times~1/(b + sigma^2)
+    Z = significance 
+    '''
+    sig_to_bg = s / np.sqrt(b + sigma_b**2)
     
-    anomaly = r_bg / (r_signal**2/Z**2 - s_bg**2)
-    measurement = (r_bg + r_signal) / (r_signal**2/Z**2 - s_bg**2)
+    #measurement assumes Gauss statistics since measurement assumes 
+    #counts high enough to be out of regime of poisson
+    measurement = (b + s) / (s**2/Z**2 - sigma_b**2)
+    
+    #anomaly is poisson-like: 
+    anomaly = poisson_time(s=s, b=b, Z=Z)
+    
     return anomaly, measurement
 
-def calc_new_rates(instance, acceptances, 
-                   plot=True, **kwargs
-                  ):
+def ml_roc_rates(acceptances, medium, all_rates):
     '''
     instance: ('core1' or 'core2') key for rates dictionary w/ different cores.
     acceptances: dict with fpr, tpr 
-    '''
-    tpr = acceptances['tpr'] 
+    '''    
+    tpr = acceptances['tpr']
     fpr = acceptances['fpr']
-    mask = fpr > 0  # to get rid of zero-edges
+    #get rid of 0-multiplication mishaps 
+    mask = fpr > 0. 
     fpr, tpr = fpr[mask], tpr[mask]
-
-    ml_rates = core_rates[instance].copy()    
-    ml_rates['r_signal'] = ml_rates['r_signal']*tpr
-    ml_rates['r_fn'] = ml_rates['r_fn']*fpr
-    ml_rates['r_ibdbg'] = ml_rates['r_ibdbg']*tpr
     
-    anom0, meas0 = get_times(**core_rates[instance])
-    anom, meas = get_times(**ml_rates)
+    ml_rates = all_rates[medium].copy()
+    for ibdsource in ['core_1', 'core_2', 'r_ibdbg']:
+        ml_rates[ibdsource] = ml_rates[ibdsource]*tpr
+    for bgsource in ['r_fn']:
+        ml_rates[bgsource] = ml_rates[bgsource]*fpr
+    
+    return ml_rates
 
-    if plot==True:
-        plot_times(fpr, anom, meas, meas0, anom0, **kwargs)
-        
-    return
-
-def plot_times(fpr, anom, meas, meas0, anom0, extra_title=''):
-    plt.plot(fpr, anom, 
-         color='royalblue', lw=2, 
-         label='anomaly w/ ML (%.1f d)'%(np.min(anom))
-        )
-    plt.hlines(anom0, 0, 1, 
-           color='blue', linestyle='--', lw=2, 
-           label='anomaly (%.1f d)'%(anom0)
+def plot_times(acceptances, 
+               medium, 
+               all_rates, 
+               ncore=1,
+               extra_title=''):
+    
+    ml_rates = ml_roc_rates(acceptances, medium, all_rates)
+    s, b = get_s_and_b(**ml_rates, ncore=ncore)
+    t_anom, t_meas = get_times(s, b)
+    
+    s0, b0 = get_s_and_b(**all_rates[medium], ncore=ncore)
+    t_anom0, t_meas0 = get_times(s0, b0)
+    
+    tpr = acceptances['tpr']
+    fpr = acceptances['fpr']
+    #get rid of 0-multiplication mishaps 
+    mask = fpr > 0. 
+    fpr, tpr = fpr[mask], tpr[mask]
+    
+    fig, ax = plt.subplots(1,1, figsize=(7, 5), 
+#                                   gridspec_kw={'height_ratios': [2, 1]}
+                                 )
+    plt.suptitle("Dwell Times to Anomaly Detection and Measurement \n %s"%(extra_title))
+    ax.hlines(t_anom0, 0, 1, 
+           color='royalblue', linestyle='--', lw=2, 
+           label='Anomaly (%.1f d)'%(t_anom0)
           )
-    plt.plot(fpr, meas, 
-         color='orange', lw=2, 
-         label='measurement w/ ML (%.1f d)'%(np.min(meas))
-        )
-    plt.hlines(meas0, 0, 1, 
+    ax.hlines(t_meas0, 0, 1, 
            color='darkorange', linestyle='--', lw=2, 
-           label='measurement (%.1f d)'%(meas0)
+           label='Measurement (%.1f d)'%(t_meas0)
           )
-    
-    plt.legend(ncol=2)
-    plt.xlabel('Fast-neutron background acceptance')
-    plt.ylabel('Dwell time (days)')
-    
-    plt.grid()
-    plt.title("Anomaly Detection and Measurement Dwell Times \n %s"%(extra_title))
-    plt.xlim(0.0, 1)
-    plt.ylim(min([anom0, min(anom), meas0, min(meas)])*.8,
-             max([anom0, meas0])*1.2)
+    ax.plot(fpr, t_anom, 
+         color='royalblue', lw=2, 
+         label='Anomaly w/ ML (%.1f d)'%(np.min(t_anom))
+        )
 
+    ax.plot(fpr, t_meas, 
+         color='darkorange', lw=2, 
+         label='Measurement w/ ML (%.1f d)'%(np.min(t_meas))
+        )
+
+    
+    ax.legend(ncol=2, 
+#               title=r'Dwell Time Calculations', 
+              title_fontsize=11)
+    ax.set_xlabel('Fast-neutron Acceptance (Rel. to Cuts)', fontsize=12)
+    ax.set_ylabel('Dwell time (days)', fontsize=12)    
+    ax.grid()
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(min([t_anom0, min(t_anom), t_meas0, min(t_meas)])*.8,
+             max([t_anom0, t_meas0])*1.2)
     plt.show()
     
-def quick_analysis(acceptances, medium='h20'):
+def quick_analysis(acceptances, medium, all_rates=all_rates):
     '''
     Quickly returns some plots for the H20 data given a certain roc curve.
     
     acceptances: (type: dict of fpr, tpr)
     '''
-    if medium=='h20': title_extra = 'Gd-H20'
-    if medium=='wbls': title_extra = 'Gd-WbLS'
-    kw = dict(plot=True, extra_title=f'16m {title_extra}, 1-core signal')
-    calc_new_rates(f'core1_{medium}', acceptances, **kw)
-
-    kw = dict(plot=True, extra_title=f'16m {title_extra}, 2-core signal')
-    calc_new_rates(f'core2_{medium}', acceptances, **kw)
+    if medium=='h2o': title_extra = r'Gd-H$_2$O'
+    if medium=='wbls': title_extra = r'Gd-WbLS'
+    
+    for ncore in [1,2]:
+        extra_title=f'16m {title_extra}, {ncore}-core signal'
+        plot_times(acceptances, medium, 
+                   all_rates, ncore=ncore, 
+                   extra_title=extra_title)
     
 # MACHINE LEARNING EVALS
 # class MLevals:
