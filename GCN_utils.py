@@ -7,6 +7,7 @@ Utilities used in graph network creation and training.
 - GCNSeq (Class): The data generator class (specifically, for 2-signal types used in GCN study). 
   - Other datagens exist but this one is the "final" one (hopefully can upload more if time permits) 
 - test: A function for testing the model performance (compute loss, accuracy, return those scores) 
+- get_gcn_predictions: return the predictions for classification (probabilistics) for a datagen 
 '''
 from tqdm import tqdm 
 
@@ -43,7 +44,7 @@ def gnn_model_summary(model):
 
 def get_graph(max_dist=700., min_dist=200.0, 
               add_weights=False, medium='wbls', 
-              loadpath=None, 
+              loadpath=None, return_nx=False,
 ):
     '''
     get a torch graph of the PMT info. 
@@ -75,6 +76,7 @@ def get_graph(max_dist=700., min_dist=200.0,
     all_edges = np.argwhere(np.logical_and(dist!=0, dist<max_dist))
     
     G = nx.Graph()
+    if return_nx: return G
     if add_weights: G.add_weighted_edges_from(edges_and_weights)
     else: G.add_edges_from(all_edges)
     G.remove_edges_from(loops)
@@ -84,7 +86,24 @@ def get_graph(max_dist=700., min_dist=200.0,
     print('***Graph Created...***')
     return torch_graph 
     
-    
+def get_dist_matrix(medium='wbls', 
+                    metric='euclidian',
+):
+    '''
+    get a distance matrix of the PMT info. 
+
+    medium: either "wbls" or "h2o"
+    metric: 'euclidian' is the only supported one for now
+    '''
+    pmtxyz = load_pmt_positions(medium=medium)
+    n_pmts = len(pmtxyz)
+
+    pmtx, pmty, pmtz = pmtxyz[:,0], pmtxyz[:,1], pmtxyz[:,2]
+    dist = np.zeros((n_pmts, n_pmts))
+    for i, pmtpos in enumerate(pmtxyz):
+        dist[i] = np.sqrt(np.sum((pmtxyz - pmtxyz[i])**2, axis=1))
+    return dist 
+
 class GCNSeq(tf.keras.utils.Sequence):
     def __init__(self, filename, torch_graph, batch_size=64, shuffle=True, ):
         data = pickle.load(open("./data/train_test_sets/%s.pkl"%(filename), 'rb'))
@@ -138,15 +157,34 @@ def test(model, datagen, criterion, device):
     loss = 0.0
     totsize = len(datagen.y)
     batch_size=datagen.batch_size
-    with tqdm(datagen, unit="batch") as tepoch:
-        tepoch.set_description(f'Validating...')
-        for i, data in enumerate(tepoch):
-            inputs = data.to(device)
-            labels = inputs.y
-            outputs = model(inputs)
-            pred = outputs.round()
-            correct += (pred == labels).sum().item()
-            loss += criterion(outputs, labels).detach().item()
-            tepoch.set_postfix(loss=loss/(i+1), accuracy=correct/((i+1)*batch_size))
-    accuracy = correct/(totsize)
-    return accuracy, loss/(i+1)
+    with torch.no_grad():
+        with tqdm(datagen, unit="batch") as tepoch:
+            tepoch.set_description(f'Validating...')
+            for i, data in enumerate(tepoch):
+                inputs = data.to(device)
+                labels = inputs.y
+                outputs = model(inputs)
+                pred = torch.round(torch.sigmoid(outputs))# outputs.round()
+                correct += (pred == labels).sum().item()
+                loss += criterion(outputs, labels).detach().item()
+                tepoch.set_postfix(loss=loss/(i+1), accuracy=correct/((i+1)*batch_size))
+        accuracy = correct/(totsize)
+        return accuracy, loss/(i+1)
+
+# def plot_distance_matrix():
+def get_gcn_predictions(model, datagen, device='cpu'):
+    model.eval()
+    correct = 0.0
+    loss = 0.0
+    totsize = len(datagen.y)
+    net_out = torch.zeros((len(datagen.y),1))
+    batch_size=datagen.batch_size
+    with torch.no_grad():
+        with tqdm(datagen, unit="batch") as tepoch:
+            tepoch.set_description(f'Validating..')
+            for i, data in enumerate(tepoch):
+                inputs = data.to(device)
+                outputs = torch.sigmoid(model(inputs).detach())
+                net_out[i*batch_size:(i+1)*batch_size] = outputs
+        del inputs, outputs
+        return net_out
